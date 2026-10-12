@@ -1,0 +1,39 @@
+name: Deploy Oncology US Analytics
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  release:
+    types: [published]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Create production bundle
+        run: |
+          mkdir oncology-us-analytics-prod
+          # Копируем только production файлы (без test-файлов)
+          cp index.html style.css app.js data-source.js config.js \
+             stats.js map.js data.js error-handler.js README.md oncology-us-analytics-prod/
+          
+          # Создаём ZIP архив
+          cd oncology-us-analytics-prod
+          zip -r ../Oncology-US-Analytics-$(git describe --tags --always).zip *
+          cd ..
+      
+      - name: Upload production bundle as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Oncology-US-Analytics-production
+          path: Oncology-US-Analytics-*.zip
+      
+      - name: Notify about release
+        run: |
+          echo "Release deployed successfully!"
+          echo "Bundle: Oncology-US-Analytics-$(git describe --tags --always).zip"

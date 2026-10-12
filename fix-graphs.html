@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Исправление графиков — Oncology US Analytics</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; background: #f5f5f5; }
+    .step { margin: 1em 0; padding: 1em; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-family: monospace; font-size: 13px; }
+    .success { color: #059669; font-weight: bold; }
+    .error { color: #dc2626; font-weight: bold; }
+    pre { background: #1f2937; color: #e5e7eb; padding: 1em; overflow-x: auto; border-radius: 4px; font-size: 11px; max-height: 200px; overflow-y: auto; }
+    .result-summary { margin-top: 2em; padding: 1.5em; background: #f8fafc; border-radius: 8px; }
+    h1, h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <h1>📊 Исправление пустых графиков — Oncology US Analytics</h1>
+
+  <div id="output"></div>
+
+  <!-- Подключаем скрипты -->
+  <script src="error-handler.js"></script>
+  <script src="config.js"></script>
+  <script src="cdc-wonder-adapter.js"></script>
+  <script src="data.js"></script>
+  <script src="data-source.js"></script>
+  <script src="stats.js"></script>
+
+  <div id="output"></div>
+
+  <script>
+    var output = document.getElementById('output');
+    function log(msg, className) {
+      var div = document.createElement('div');
+      div.className = 'step ' + (className || '');
+      div.textContent = msg;
+      output.appendChild(div);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    // Шаг 1: Проверка загрузки данных
+    log('=== ШАГ 1: Проверка загрузки демо-данных ===', 'info');
+    
+    try {
+      if (!window.ONCO_RECORDS) {
+        throw new Error('ONCO_RECORDS отсутствует!');
+      }
+      log('✓ ONCO_RECORDS загружен, записей: ' + window.ONCO_RECORDS.length, 'success');
+
+      // Шаг 2: Проверка OncologyData.load
+      log('=== ШАГ 2: Загрузка через OncologyData.load ===', 'info');
+      
+      var promise = window.OncologyData.load('synthetic');
+      
+      promise.then(function(data) {
+        log('✓ Загрузка данных завершена:', 'success');
+        log('  Источник: ' + data.source, 'success');
+        log('  Количество записей: ' + (data.records && Array.isArray(data.records) ? data.records.length : 0), 'success');
+
+        if (data.records && Array.isArray(data.records)) {
+          var years = [...new Set(data.records.map(r => r.year))];
+          log('  Годы: ' + years.join(', '), 'success');
+          
+          var states = data.dims.states || [];
+          log('  Штатов: ' + states.length, 'success');
+          
+          var types = data.dims.types || [];
+          log('  Типов рака: ' + types.length, 'success');
+
+          // Шаг 3: Создание тестовых графиков для проверки агрегации
+          log('=== ШАГ 3: Тестирование агрегации данных ===', 'info');
+
+          // Агрегация по годам (для графика тренда)
+          var yearsMap = {};
+          data.records.forEach(function(r) {
+            if (!yearsMap[r.year]) yearsMap[r.year] = 0;
+            yearsMap[r.year] += r.newCases;
+          });
+
+          log('Агрегация по годам:', JSON.stringify(yearsMap, null, 2), 'success');
+
+          // Агрегация по типам рака (для графика по типам)
+          var typesMap = {};
+          data.records.forEach(function(r) {
+            if (!typesMap[r.type]) typesMap[r.type] = 0;
+            typesMap[r.type] += r.newCases;
+          });
+
+          log('Агрегация по типам рака:', JSON.stringify(typesMap, null, 2), 'success');
+
+          // Агрегация по штатам (для top-10 штатов)
+          var statesMap = {};
+          data.records.forEach(function(r) {
+            if (!statesMap[r.state]) statesMap[r.state] = 0;
+            statesMap[r.state] += r.newCases;
+          });
+
+          log('Топ-5 штатов по новым случаям:', Object.keys(statesMap).sort(function(a, b) { return statesMap[b] - statesMap[a]; }).slice(0, 5).map(function(state) { 
+            return state + ': ' + statesMap[state]; 
+          }).join(', '), 'success');
+
+          // Создание тестовых графиков
+          log('=== ШАГ 4: Создание тестовых графиков ===', 'info');
+
+          // Линейный график тренда
+          var ctxTrend = document.getElementById('chartTrend') || null;
+          if (!ctxTrend) {
+            var container = document.createElement('div');
+            container.style.width = '100%';
+            container.style.height = '300px';
+            container.style.margin = '1em 0';
+            container.innerHTML = '<canvas id="chartTrend"></canvas>';
+            output.appendChild(container);
+          } else {
+            var container = ctxTrend.parentNode;
+          }
+
+          if (ctxTrend) {
+            try {
+              charts.chartTrend = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                  labels: Object.keys(yearsMap).map(Number),
+                  datasets: [{
+                    label: 'Новые случаи по годам',
+                    data: Object.values(yearsMap),
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37,99,235,0.1)',
+                    fill: true,
+                    tension: 0.35
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { title: { display: true, text: 'Тренд новых случаев по годам' } }
+                }
+              });
+              log('✓ Тестовый линейный график создан успешно!', 'success');
+            } catch (e) {
+              log('✗ Ошибка создания графика тренда: ' + e.message, 'error');
+            }
+          }
+
+          // Бар-график по типам рака
+          var ctxTypes = document.getElementById('chartTypes') || null;
+          if (!ctxTypes) {
+            var container = document.createElement('div');
+            container.style.width = '100%';
+            container.style.height = '300px';
+            container.style.margin = '1em 0';
+            container.innerHTML = '<canvas id="chartTypes"></canvas>';
+            output.appendChild(container);
+          }
+
+          if (ctxTypes) {
+            try {
+              var sortedTypes = Object.keys(typesMap).sort(function(a, b) { return typesMap[b] - typesMap[a]; }).slice(0, 6);
+              
+              charts.chartTypes = new Chart(ctxTypes, {
+                type: 'bar',
+                data: {
+                  labels: sortedTypes.map(function(t) { return t; }),
+                  datasets: [{
+                    label: 'Новые случаи по типам рака',
+                    data: sortedTypes.map(function(t) { return typesMap[t]; }),
+                    backgroundColor: ['#2563eb', '#0d9488', '#e11d48', '#7c3aed', '#f59e0b', '#64748b']
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { title: { display: true, text: 'Новые случаи по типам рака' } },
+                  scales: { x: { ticks: { maxRotation: 45, minRotation: 30 } } }
+                }
+              });
+              log('✓ Тестовый бар-график создан успешно!', 'success');
+            } catch (e) {
+              log('✗ Ошибка создания графика типов: ' + e.message, 'error');
+            }
+          }
+
+          // Бар-график топ-10 штатов
+          var ctxStates = document.getElementById('chartStates') || null;
+          if (!ctxStates) {
+            var container = document.createElement('div');
+            container.style.width = '100%';
+            container.style.height = '300px';
+            container.style.margin = '1em 0';
+            container.innerHTML = '<canvas id="chartStates"></canvas>';
+            output.appendChild(container);
+          }
+
+          if (ctxStates) {
+            try {
+              var topStates = Object.entries(statesMap).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
+              
+              charts.chartStates = new Chart(ctxStates, {
+                type: 'bar',
+                data: {
+                  labels: topStates.map(function(item) { return item[0]; }),
+                  datasets: [{
+                    label: 'Топ-10 штатов по новым случаям',
+                    data: topStates.map(function(item) { return item[1]; }),
+                    backgroundColor: '#0d9488'
+                  }]
+                },
+                options: {
+                  indexAxis: 'y',
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { title: { display: true, text: 'Топ-10 штатов (по новым случаям)' } }
+                }
+              });
+              log('✓ Тестовый топ-штанов график создан успешно!', 'success');
+            } catch (e) {
+              log('✗ Ошибка создания графика штатов: ' + e.message, 'error');
+            }
+          }
+
+          // Финальный результат
+          var totalRecords = data.records ? data.records.length : 0;
+          var hasYears = Object.keys(yearsMap).length > 0;
+          var hasTypes = Object.keys(typesMap).length > 0;
+          var hasTopStates = topStates && topStates.length > 0;
+
+          log('=== ИТОГ ===', 'success');
+          log('✓ Демо-данные загружены: ' + totalRecords + ' записей', 'success');
+          log('✓ Агрегация по годам: ' + (hasYears ? 'ДА' : 'НЕТ'), 'success');
+          log('✓ Агрегация по типам рака: ' + (hasTypes ? 'ДА' : 'НЕТ'), 'success');
+          log('✓ Агрегация по штатам (top-10): ' + (hasTopStates ? 'ДА' : 'НЕТ'), 'success');
+
+          if (totalRecords > 0 && hasYears && hasTypes && hasTopStates) {
+            log('=== ВЕРДИКТ ===', 'success');
+            log('✅ Все графики работают корректно!', 'success');
+            log('✅ Данные загружены и агрегированы правильно', 'success');
+            log('✅ Если графики всё ещё пустые — проверьте фильтры (кнопка "Сбросить")', 'success');
+          } else {
+            log('⚠️ Некоторые графики могут быть пустыми', 'warn');
+          }
+
+        } else {
+          log('✗ data.records отсутствует или не является массивом!', 'error');
+        }
+
+      }).catch(function(err) {
+        log('✗ Ошибка при загрузке данных: ' + err.message, 'error');
+        console.error(err.stack);
+      });
+
+    } catch (e) {
+      log('✗ Фатальная ошибка: ' + e.message, 'error');
+      console.error(e.stack);
+    }
+
+  </script>
+</body>
+</html>

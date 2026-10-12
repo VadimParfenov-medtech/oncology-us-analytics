@@ -1,0 +1,31 @@
+# Node modules
+node_modules/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts (если будут)
+dist/
+build/
+coverage/
+
+# Лог-файлы
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Для деплоя: игнорируем test-* файлы если не нужны в production
+test-log.js
+test-datasource.js
+test-stats.js
+
+# Тестовые данные (не в продакшене)
+test-data.json
+*.test.json

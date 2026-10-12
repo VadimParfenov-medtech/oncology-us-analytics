@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Онкологическая аналитика — США (2024–2026)</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E" />
+  <script>
+    // Force light theme on first load - remove any stored dark theme preference
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('onco-theme');
+    }
+  </script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div>
+        <h1>Онкологическая аналитика · США</h1>
+        <p class="app-subtitle">Пациенты с онкологическими заболеваниями: заболеваемость, смертность, выживаемость, стоимость лечения, география и гендерный срез · 2024–2026. Лабораторные и инструментальные исследования</p>
+      </div>
+      <div class="header-actions">
+        <span class="badge badge--synthetic" id="sourceBadge" title="Активный источник данных">Демо-данные (синтетика)</span>
+        <button type="button" id="themeToggle" class="btn btn--ghost theme-btn" aria-label="Переключить тему">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="source-banner" id="sourceBanner" role="status" aria-live="polite"></div>
+
+  <section class="filters" aria-label="Фильтры">
+    <div class="filter">
+      <label for="fSource">Источник данных</label>
+      <select id="fSource">
+        <option value="synthetic" selected>Демо-данные (встроенные)</option>
+        <option value="wonder">CDC WONDR / SEER-NPCR</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="fYear">Год</label>
+      <select id="fYear"></select>
+    </div>
+    <div class="filter">
+      <label for="fState">Штат</label>
+      <select id="fState"></select>
+    </div>
+    <div class="filter">
+      <label for="fType">Тип рака</label>
+      <select id="fType"></select>
+    </div>
+    <div class="filter">
+      <label for="fStage">Стадия</label>
+      <select id="fStage"></select>
+    </div>
+    <div class="filter">
+      <label for="fSex">Пол</label>
+      <select id="fSex">
+        <option value="all" selected>Все</option>
+        <option value="male">Мужской</option>
+        <option value="female">Женский</option>
+      </select>
+    </div>
+    <button id="resetBtn" type="button" class="btn btn--ghost">Сбросить</button>
+  </section>
+
+  <main class="content">
+    <section class="kpis" id="kpis" aria-label="Ключевые показатели"></section>
+
+    <div class="grid" id="chartsWrap">
+      <article class="card card--map">
+        <div class="map-head">
+          <h2>Карта США · тепловые значения</h2>
+          <div class="map-controls">
+            <div class="map-metric">
+              <label for="mapMetric">Метрика</label>
+              <select id="mapMetric"></select>
+            </div>
+            <div class="map-legend" id="mapLegend"></div>
+          </div>
+        </div>
+        <div class="map-box" id="mapBox" role="img" aria-label="Карта США"></div>
+      </article>
+
+      <article class="card card--trend">
+        <div class="chart-box chart-box--tall"><canvas id="chartTrend" role="img" aria-label="Динамика по годам"></canvas></div>
+      </article>
+      <article class="card card--survival" id="cardSurvival">
+        <div class="chart-box"><canvas id="chartSurvival" role="img" aria-label="Выживаемость по стадиям"></canvas></div>
+      </article>
+      <article class="card card--types">
+        <div class="chart-box"><canvas id="chartTypes" role="img" aria-label="По типам рака"></canvas></div>
+      </article>
+      <article class="card card--stages">
+        <div class="chart-box"><canvas id="chartStages" role="img" aria-label="Структура по стадиям"></canvas></div>
+      </article>
+      <article class="card card--states">
+        <div class="chart-box"><canvas id="chartStates" role="img" aria-label="Топ штатов"></canvas></div>
+      </article>
+      <article class="card card--sex" id="cardSex">
+        <div class="chart-box chart-box--tall"><canvas id="chartSex" role="img" aria-label="Мужчины и женщины"></canvas></div>
+      </article>
+    </div>
+
+    <!-- Tab: Лабораторные и инструментальные исследования -->
+    <section class="card lab-instrumental-card" id="labInstrumentalSection" style="display:none;">
+      <div class="lab-instrumental-head">
+        <h2>Лабораторные и инструментальные исследования</h2>
+        <p class="lab-instrumental-subtitle">Частота лабораторных тестов, биомаркеров и визуализации по типам рака</p>
+      </div>
+      
+      <!-- Фильтры для исследований -->
+      <div class="filters" aria-label="Фильтры лабораторных исследований">
+        <div class="filter">
+          <label for="fStudyType">Тип исследования</label>
+          <select id="fStudyType">
+            <option value="all" selected>Все типы</option>
+            <option value="biomarker">Биомаркеры (PSA, CEA, CA-125)</option>
+            <option value="ct">КТ (Компьютерная томография)</option>
+            <option value="mri">МРТ</option>
+            <option value="petct">ПЭТ-КТ</option>
+            <option value="ultrasound">УЗИ</option>
+          </select>
+        </div>
+        <button id="resetLabBtn" type="button" class="btn btn--ghost">Сбросить фильтры исследований</button>
+      </div>
+
+      <!-- KPI для лабораторных исследований -->
+      <section class="kpis" id="labKpis" aria-label="KPI лабораторных исследований"></section>
+
+      <!-- Графики для исследований -->
+      <div class="grid" id="labChartsWrap">
+        <article class="card card--bar chart--study-frequency">
+          <div class="chart-box"><canvas id="chartStudyFrequency" role="img" aria-label="Частота исследований по типам рака"></canvas></div>
+        </article>
+        <article class="card card--bar chart--study-cost">
+          <div class="chart-box"><canvas id="chartStudyCost" role="img" aria-label="Стоимость исследований"></canvas></div>
+        </article>
+        <article class="card card--types chart--biomarker-levels">
+          <div class="chart-box"><canvas id="chartBiomarkerLevels" role="img" aria-label="Уровни биомаркеров"></canvas></div>
+        </article>
+      </div>
+
+      <!-- Таблица лабораторных исследований -->
+      <section class="card table-card" aria-label="Таблица лабораторных исследований">
+        <div class="table-head">
+          <h2>Детализация лабораторных исследований</h2>
+          <button id="exportLabBtn" type="button" class="btn">Экспорт CSV (исследования)</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead id="labTableHead"></thead>
+            <tbody id="labTableBody"></tbody>
+          </table>
+        </div>
+        <p class="table-note" id="labTableNote"></p>
+      </section>
+
+      <!-- Подсказка -->
+      <div class="card">
+        <h3>О лабораторных и инструментальных исследованиях</h3>
+        <p>Данные показывают частоту выполнения различных видов исследований (лабораторные тесты, КТ, МРТ, ПЭТ-КТ, УЗИ) для мониторинга пациентов с онкологическими заболеваниями. Биомаркеры измеряются регулярно для оценки ответа на лечение, инструментальные исследования проводятся по индивидуальному графику в зависимости от типа рака и стадии.</p>
+      </div>
+
+    </section>
+
+    <footer class="app-footer">
+
+  <!-- Модуль логирования ошибок в консоль разработчика -->
+  <script src="error-handler.js"></script>
+  
+  <!-- Подключаем stats.js ПЕРЕД data-source.js чтобы window.OncologyStats был доступен -->
+  <script src="stats.js"></script>
+  
+  <script src="config.js"></script>
+  <script src="cdc-wonder-adapter.js"></script>
+  <script src="data.js"></script>
+  <script src="data-source.js"></script>
+  <!-- Карта США с тепловыми значениями (обязателен для визуализации) -->
+  <script src="map.js"></script>
+  
+  <!-- Лабораторные и инструментальные исследования -->
+  <script src="lab-instrumental-data.js"></script>
+  
+  <script src="app.js"></script>
+</body>
+</html>

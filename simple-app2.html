@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple App Test v2 — Oncology US Analytics</title>
+  <style>
+    body { font-family: system-ui; padding: 20px; max-width: 1000px; margin: 0 auto; }
+    .card { background: white; padding: 1.5em; border-radius: 8px; margin: 1em 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5em; margin-top: 0; }
+    pre { background: #1f2937; color: #e5e7eb; padding: 1em; overflow-x: auto; border-radius: 4px; font-size: 12px; }
+    .ok { color: #059669; font-weight: bold; }
+    .error { color: #dc2626; font-weight: bold; }
+    .warn { color: #f59e0b; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>📊 Simple App Test v2 — Oncology US Analytics</h1>
+
+  <!-- Подключаем Chart.js ДО данных -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
+  
+  <!-- Подключаем скрипты приложения -->
+  <script src="data.js"></script>
+  <script src="config.js"></script>
+  <script src="data-source.js"></script>
+
+  <div id="output"></div>
+
+  <script>
+    var output = document.getElementById('output');
+    function log(msg, className) {
+      var div = document.createElement('div');
+      div.className = 'card' + (className ? ' ' + className : '');
+      div.textContent = msg;
+      output.appendChild(div);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    console.log('[SIMPLE APP START] Проверка агрегации данных...');
+
+    // Шаг 1: Проверка ONCO_RECORDS
+    if (typeof window !== 'undefined' && window.ONCO_RECORDS) {
+      log('✓ ONCO_RECORDS загружен, записей: ' + window.ONCO_RECORDS.length, 'ok');
+      
+      var sample = window.ONCO_RECORDS[0];
+      log('Пример записи:', JSON.stringify(sample, null, 2), '');
+
+    } else {
+      throw new Error('ONCO_RECORDS не загружен!');
+    }
+
+    // Шаг 2: Загрузка данных через OncologyData
+    window.OncologyData.load('synthetic').then(function(data) {
+      log('✓ Данные загружены из OncologyData.load():', 'ok');
+      
+      var sample = data.records[0];
+      log('Пример записи из данных:', JSON.stringify(sample, null, 2), '');
+
+      // Шаг 3: Прямая агрегация без stats.js
+      console.log('[SIMPLE APP] Начинаем прямую агрегацию...');
+      
+      var totalCases = 0;
+      var byType = {};
+      var byStage = {};
+      var byState = {};
+
+      data.records.forEach(function(r) {
+        var cases = r.newCases || 0;
+        totalCases += cases;
+        
+        if (!byType[r.type]) byType[r.type] = 0;
+        byType[r.type] += cases;
+
+        if (!byStage[r.stage]) byStage[r.stage] = 0;
+        byStage[r.stage] += cases;
+
+        if (!byState[r.state]) byState[r.state] = 0;
+        byState[r.state] += cases;
+      });
+
+      log('✓ Прямая агрегация завершена:', 'ok');
+      
+      // Создаём тестовый график по типам рака
+      var ctxTypes = document.createElement('canvas');
+      ctxTypes.id = 'typesChart';
+      ctxTypes.style.width = '100%';
+      ctxTypes.style.height = '300px';
+      output.appendChild(ctxTypes);
+
+      console.log('[SIMPLE APP] Создаём график типов рака...');
+      console.log('byType:', byType);
+
+      try {
+        var sortedTypes = Object.keys(byType).sort(function(a, b) { return byType[b] - byType[a]; }).slice(0, 6);
+        
+        // Проверка Chart.js
+        if (typeof Chart === 'undefined') {
+          throw new Error('Chart.js не загружен!');
+        }
+
+        console.log('[SIMPLE APP] Chart.js загружен:', typeof Chart === 'function' ? 'Да' : 'Нет');
+        console.log('Chart.version:', Chart.version || Chart.versions?.core);
+
+        // Создаём график
+        new Chart(ctxTypes, {
+          type: 'bar',
+          data: {
+            labels: sortedTypes.map(function(t) { return t; }),
+            datasets: [{
+              label: 'Новые случаи по типам рака',
+              data: sortedTypes.map(function(t) { return byType[t]; }),
+              backgroundColor: ['#2563eb', '#0d9488', '#e11d48', '#7c3aed', '#f59e0b', '#64748b']
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'График по типам рака (прямая агрегация)' } }
+          }
+        });
+
+        console.log('[SIMPLE APP] График создан!');
+        
+        // Финальный результат
+        log('=== ИТОГ ===', 'ok');
+        log('✓ Демо-данные: ' + data.records.length + ' записей', 'ok');
+        log('✓ Агрегация по типам: ' + Object.keys(byType).length, 'ok');
+        log('✓ Агрегация по стадиям: ' + Object.keys(byStage).length, 'ok');
+        log('✓ Агрегация по штатам: ' + Object.keys(byState).length, 'ok');
+        log('✓ Тестовый график создан!', 'ok');
+
+      } catch (e) {
+        log('✗ Ошибка создания графика: ' + e.message, 'error');
+        console.error(e.stack);
+      }
+
+    }).catch(function(err) {
+      log('✗ Ошибка загрузки данных: ' + err.message, 'error');
+      console.error(err.stack);
+    });
+
+  </script>
+
+</body>
+</html>
